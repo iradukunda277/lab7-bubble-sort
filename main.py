@@ -1,38 +1,11 @@
-import os
-import time
-
-
-def clear_screen() -> None:
-    """Clear the terminal screen."""
-    os.system("cls" if os.name == "nt" else "clear")
-
-
-def display_bars(
-    numbers: list[int], active_indices: tuple[int, int] | None = None
-) -> None:
-    """Display the list as ASCII bars in the terminal."""
-    if active_indices is None:
-        active_indices = (-1, -1)
-
-    for index, value in enumerate(numbers):
-        marker = " <==" if index in active_indices else ""
-        print(f"{value:2} | {'#' * value}{marker}")
+import random
+from typing import Generator
 
 
 def bubble_sort(numbers: list[int]) -> list[int]:
-    """Return a sorted copy of the list using Bubble Sort.
-
-    TODO:
-    - Add support for `key` parameter for direct element keying.
-    - Add `reverse` flag for descending order.
-    - Add unit tests for empty, single-element, sorted, reverse lists.
-    """
+    """Return a sorted copy of the list using Bubble Sort."""
     sorted_numbers = numbers.copy()
     n = len(sorted_numbers)
-
-    # early exit for trivial cases
-    if n <= 1:
-        return sorted_numbers
 
     for i in range(n):
         swapped = False
@@ -45,74 +18,189 @@ def bubble_sort(numbers: list[int]) -> list[int]:
                 )
                 swapped = True
 
-        # if nothing swapped in this pass, the list is already sorted
         if not swapped:
             break
 
     return sorted_numbers
 
 
-def visualize_bubble_sort(numbers: list[int], delay: float = 0.5) -> list[int]:
-    """Visualize Bubble Sort step by step in the terminal.
-
-    TODO:
-    - Add optional `step_mode` (press Enter per compare) as an interactive mode.
-    - Add `max_width` scaling to avoid huge bars for large values.
-    - Add colored output for active vs sorted region.
+def bubble_sort_steps(
+    numbers: list[int],
+) -> Generator[tuple[list[int], tuple[int, int] | None, int], None, None]:
     """
-    sorted_numbers = numbers.copy()
-    n = len(sorted_numbers)
+    Yield Bubble Sort states for visualization.
+
+    Returns:
+        current list,
+        active pair being compared,
+        sorted_start index (everything from this index to the end is sorted)
+    """
+    arr = numbers.copy()
+    n = len(arr)
+
+    if n == 0:
+        yield arr.copy(), None, 0
+        return
 
     for i in range(n):
         swapped = False
-
-        # small improvement: show pass summary once per pass
-        clear_screen()
-        print("Bubble Sort Visualization")
-        print(f"Pass {i + 1}/{n} | Remaining unsorted tail length: {n - i - 1}\n")
-        display_bars(sorted_numbers, active_indices=None)
-        time.sleep(delay)
+        sorted_start = n - i  # suffix already sorted from previous passes
 
         for j in range(0, n - i - 1):
-            clear_screen()
-            print("Bubble Sort Visualization")
-            print(f"Pass {i + 1}/{n} | Comparing positions {j} and {j + 1}\n")
-            display_bars(sorted_numbers, (j, j + 1))
-            time.sleep(delay)
+            yield arr.copy(), (j, j + 1), sorted_start
 
-            if sorted_numbers[j] > sorted_numbers[j + 1]:
-                sorted_numbers[j], sorted_numbers[j + 1] = (
-                    sorted_numbers[j + 1],
-                    sorted_numbers[j],
-                )
+            if arr[j] > arr[j + 1]:
+                arr[j], arr[j + 1] = arr[j + 1], arr[j]
                 swapped = True
-
-                clear_screen()
-                print("Bubble Sort Visualization")
-                print(f"Pass {i + 1}/{n} | Swap between positions {j} and {j + 1}\n")
-                display_bars(sorted_numbers, (j, j + 1))
-                time.sleep(delay)
+                yield arr.copy(), (j, j + 1), sorted_start
 
         if not swapped:
-            # TODO: highlight the early-exit optimization in visualization
-            break
+            yield arr.copy(), None, 0
+            return
 
-    clear_screen()
-    print("Sorting complete.\n")
-    display_bars(sorted_numbers)
-    return sorted_numbers
+    yield arr.copy(), None, 0
+
+
+def build_numbers(size: int = 40) -> list[int]:
+    """Create a shuffled list 1..size."""
+    numbers = list(range(1, size + 1))
+    random.shuffle(numbers)
+    return numbers
+
+
+def run_visualization(size: int = 40, delay_ms: int = 80) -> None:
+    """Run the Pygame Bubble Sort visualization."""
+    try:
+        import pygame
+    except ImportError:
+        print("Pygame is not installed.")
+        print("Run: pip install pygame")
+        return
+
+    pygame.init()
+
+    width, height = 1100, 700
+    screen = pygame.display.set_mode((width, height))
+    pygame.display.set_caption("Bubble Sort Visualization")
+
+    clock = pygame.time.Clock()
+    title_font = pygame.font.SysFont("consolas", 28, bold=True)
+    info_font = pygame.font.SysFont("consolas", 18)
+
+    background_color = (10, 12, 24)
+    bar_color = (102, 204, 255)  # light blue
+    active_color = (255, 215, 0)  # yellow
+    sorted_color = (120, 255, 160)  # green
+    text_color = (245, 245, 245)
+
+    numbers = build_numbers(size)
+    steps = bubble_sort_steps(numbers)
+
+    current_numbers = numbers.copy()
+    active_pair = None
+    sorted_start = len(numbers)
+
+    paused = False
+    finished = False
+    running = True
+    last_update = pygame.time.get_ticks()
+
+    def draw_scene() -> None:
+        screen.fill(background_color)
+
+        title = title_font.render("Bubble Sort Visualization", True, text_color)
+        screen.blit(title, (30, 20))
+
+        if finished:
+            status_text = "Finished"
+        elif paused:
+            status_text = "Paused"
+        else:
+            status_text = "Sorting..."
+
+        info = info_font.render(
+            f"Status: {status_text}   |   SPACE = pause/resume   |   R = restart   |   Q / ESC = quit",
+            True,
+            text_color,
+        )
+        screen.blit(info, (30, 60))
+
+        if not current_numbers:
+            pygame.display.flip()
+            return
+
+        margin_x = 40
+        top_y = 110
+        bottom_margin = 40
+        draw_height = height - top_y - bottom_margin
+        draw_width = width - (2 * margin_x)
+
+        n = len(current_numbers)
+        max_value = max(current_numbers)
+
+        step_width = draw_width / n
+        bar_width = max(4, int(step_width) - 2)
+
+        for i, value in enumerate(current_numbers):
+            bar_height = int((value / max_value) * draw_height)
+            x = int(margin_x + i * step_width)
+            y = height - bottom_margin - bar_height
+
+            color = bar_color
+
+            if i >= sorted_start:
+                color = sorted_color
+
+            if active_pair is not None and i in active_pair and not finished:
+                color = active_color
+
+            pygame.draw.rect(screen, color, (x, y, bar_width, bar_height))
+
+        pygame.display.flip()
+
+    while running:
+        clock.tick(60)
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                running = False
+
+            elif event.type == pygame.KEYDOWN:
+                if event.key in (pygame.K_q, pygame.K_ESCAPE):
+                    running = False
+
+                elif event.key == pygame.K_SPACE:
+                    paused = not paused
+
+                elif event.key == pygame.K_r:
+                    numbers = build_numbers(size)
+                    steps = bubble_sort_steps(numbers)
+                    current_numbers = numbers.copy()
+                    active_pair = None
+                    sorted_start = len(numbers)
+                    paused = False
+                    finished = False
+                    last_update = pygame.time.get_ticks()
+
+        now = pygame.time.get_ticks()
+
+        if not paused and not finished and now - last_update >= delay_ms:
+            try:
+                current_numbers, active_pair, sorted_start = next(steps)
+            except StopIteration:
+                finished = True
+                active_pair = None
+                sorted_start = 0
+
+            last_update = now
+
+        draw_scene()
+
+    pygame.quit()
 
 
 def main() -> None:
-    # TODO: accept a CLI argument or random generated list for more flexible testing
-    numbers = [8, 3, 1, 7, 4, 6, 2, 5]
-
-    print("Original list:", numbers)
-    input("\nPress Enter to start the terminal visualization...")
-
-    sorted_numbers = visualize_bubble_sort(numbers, delay=0.4)
-
-    print("\nSorted list:", sorted_numbers)
+    run_visualization(size=40, delay_ms=80)
 
 
 if __name__ == "__main__":
