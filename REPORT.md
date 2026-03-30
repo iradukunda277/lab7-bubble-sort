@@ -38,3 +38,11 @@
 ## Did AI make you faster? Why or why not?
 ## Did you feel in control of the code?
 ## Would you use AI the same way next time? What would you change?
+
+# Practical Summary of Work Done
+- Created the Bubble Sort program in `main.py`.
+- Implemented terminal ASCII bar visualization via `display_bars` + `visualize_bubble_sort`.
+- Used Copilot for explanation, review, and iterative improvement guidance.
+- Added explicit TODOs and small cleanup suggestions while keeping existing code structure.
+- Documented progress in `REPORT.md` and followed in-session prompting workflow.
+- (Assumed) pushed progress to GitHub as part of development workflow.
