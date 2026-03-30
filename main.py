@@ -104,6 +104,7 @@ def run_visualization(size: int = 40, delay_ms: int = 80) -> None:
     finished = False
     running = True
     last_update = pygame.time.get_ticks()
+    speed_multiplier = 1  # 1x, 2x, 3x, or 4x speed
 
     def draw_scene() -> None:
         screen.fill(background_color)
@@ -119,18 +120,21 @@ def run_visualization(size: int = 40, delay_ms: int = 80) -> None:
             status_text = "Sorting..."
 
         info = info_font.render(
-            f"Status: {status_text}   |   SPACE = pause/resume   |   R = restart   |   Q / ESC = quit",
+            f"Status: {status_text}   |   SPACE = pause/resume   |   R = restart   |   1/2/3/4 = speed   |   Q / ESC = quit",
             True,
             text_color,
         )
         screen.blit(info, (30, 60))
+
+        speed_text = info_font.render(f"Speed: x{speed_multiplier}", True, text_color)
+        screen.blit(speed_text, (30, 90))
 
         if not current_numbers:
             pygame.display.flip()
             return
 
         margin_x = 40
-        top_y = 110
+        top_y = 130
         bottom_margin = 40
         draw_height = height - top_y - bottom_margin
         draw_width = width - (2 * margin_x)
@@ -182,9 +186,21 @@ def run_visualization(size: int = 40, delay_ms: int = 80) -> None:
                     finished = False
                     last_update = pygame.time.get_ticks()
 
+                elif event.key == pygame.K_1:
+                    speed_multiplier = 1
+
+                elif event.key == pygame.K_2:
+                    speed_multiplier = 2
+
+                elif event.key == pygame.K_3:
+                    speed_multiplier = 3
+
+                elif event.key == pygame.K_4:
+                    speed_multiplier = 4
+
         now = pygame.time.get_ticks()
 
-        if not paused and not finished and now - last_update >= delay_ms:
+        if not paused and not finished and now - last_update >= delay_ms // speed_multiplier:
             try:
                 current_numbers, active_pair, sorted_start = next(steps)
             except StopIteration:
